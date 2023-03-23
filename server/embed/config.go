@@ -339,7 +339,7 @@ type Config struct {
 	ExperimentalEnableLeaseCheckpointPersist bool `json:"experimental-enable-lease-checkpoint-persist"`
 	ExperimentalCompactionBatchLimit         int  `json:"experimental-compaction-batch-limit"`
 	// ExperimentalDefragBatchLimit is the number of keys iterated before committing a transaction during defragmentation.
-	ExperimentalDefragBatchLimit int `json:"experimental-defrag-limit"`
+	ExperimentalDefragBatchLimit int64 `json:"experimental-defrag-limit"`
 	// ExperimentalCompactionSleepInterval is the sleep interval between every etcd compaction loop.
 	ExperimentalCompactionSleepInterval     time.Duration `json:"experimental-compaction-sleep-interval"`
 	ExperimentalWatchProgressNotifyInterval time.Duration `json:"experimental-watch-progress-notify-interval"`

@@ -47,7 +47,7 @@ func newBackend(cfg config.ServerConfig, hooks backend.Hooks) backend.Backend {
 	if cfg.DefragBatchLimit != 0 {
 		bcfg.DefragBatchLimit = cfg.DefragBatchLimit
 		if cfg.Logger != nil {
-			cfg.Logger.Info("setting backend defrag limit", zap.Int("defrag limit", cfg.DefragBatchLimit))
+			cfg.Logger.Info("setting backend defrag limit", zap.Int64("defrag limit", cfg.DefragBatchLimit))
 		}
 	}
 	bcfg.BackendFreelistType = cfg.BackendFreelistType

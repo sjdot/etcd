@@ -34,7 +34,7 @@ var (
 	defaultBatchLimit    = 10000
 	defaultBatchInterval = 100 * time.Millisecond
 
-	defaultDefragBatchLimit = 10000
+	defaultDefragBatchLimit = int64(10000)
 
 	// initialMmapSize is the initial size of the mmapped region. Setting this larger than
 	// the potential max db size can prevent writer from blocking reader.
@@ -111,7 +111,7 @@ type backend struct {
 	batchLimit    int
 	batchTx       *batchTxBuffered
 
-	defragLimit int
+	defragLimit int64
 
 	readTx *readTx
 	// txReadBufferCache mirrors "txReadBuffer" within "readTx" -- readTx.baseReadTx.buf.
@@ -139,7 +139,7 @@ type BackendConfig struct {
 	// BatchLimit is the maximum puts before flushing the BatchTx.
 	BatchLimit int
 	// DefragBatchLimit is the number of keys iterated before committing a transaction during defragmentation.
-	DefragBatchLimit int
+	DefragBatchLimit int64
 	// BackendFreelistType is the backend boltdb's freelist type.
 	BackendFreelistType bolt.FreelistType
 	// MmapSize is the number of bytes to mmap for the backend.
@@ -157,11 +157,11 @@ type BackendConfig struct {
 
 func DefaultBackendConfig(lg *zap.Logger) BackendConfig {
 	return BackendConfig{
-		BatchInterval: defaultBatchInterval,
-		BatchLimit:    defaultBatchLimit,
-		DefragBatchLimit:   defaultDefragBatchLimit,
-		MmapSize:      initialMmapSize,
-		Logger:        lg,
+		BatchInterval:    defaultBatchInterval,
+		BatchLimit:       defaultBatchLimit,
+		DefragBatchLimit: defaultDefragBatchLimit,
+		MmapSize:         initialMmapSize,
+		Logger:           lg,
 	}
 }
 
@@ -566,8 +566,9 @@ func (b *backend) defrag() error {
 	return nil
 }
 
-func defragdb(odb, tmpdb *bolt.DB, limit int) error {
+func defragdb(odb, tmpdb *bolt.DB, limit int64) error {
 	// open a tx on tmpdb for writes
+	var size int64
 	tmptx, err := tmpdb.Begin(true)
 	if err != nil {
 		return err
@@ -587,7 +588,6 @@ func defragdb(odb, tmpdb *bolt.DB, limit int) error {
 
 	c := tx.Cursor()
 
-	count := 0
 	for next, _ := c.First(); next != nil; next, _ = c.Next() {
 		b := tx.Bucket(next)
 		if b == nil {
@@ -601,8 +601,8 @@ func defragdb(odb, tmpdb *bolt.DB, limit int) error {
 		tmpb.FillPercent = 0.9 // for bucket2seq write in for each
 
 		if err = b.ForEach(func(k, v []byte) error {
-			count++
-			if count > limit {
+			sz := int64(len(k) + len(v))
+			if size+sz > limit && limit != 0 {
 				err = tmptx.Commit()
 				if err != nil {
 					return err
@@ -614,8 +614,9 @@ func defragdb(odb, tmpdb *bolt.DB, limit int) error {
 				tmpb = tmptx.Bucket(next)
 				tmpb.FillPercent = 0.9 // for bucket2seq write in for each
 
-				count = 0
+				size = 0
 			}
+			size += sz
 			return tmpb.Put(k, v)
 		}); err != nil {
 			return err
